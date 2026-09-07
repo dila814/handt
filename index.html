@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>3D Hand Particle System</title>
+
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#000;font-family:Arial}
+canvas{position:fixed;inset:0}
+
+#panel{
+ position:fixed;
+ top:15px;
+ left:15px;
+ z-index:10;
+ color:#fff;
+ background:rgba(0,0,0,.55);
+ backdrop-filter:blur(12px);
+ padding:15px;
+ border-radius:15px;
+ width:260px;
+}
+
+h2{margin:0 0 10px}
+button{
+ border:0;
+ color:#fff;
+ background:#ffffff20;
+ padding:8px 10px;
+ margin:3px;
+ border-radius:8px;
+ cursor:pointer;
+}
+button:hover{background:#ffffff40}
+
+#video{
+ position:fixed;
+ right:15px;
+ bottom:15px;
+ width:190px;
+ border-radius:14px;
+ transform:scaleX(-1);
+ z-index:10;
+ border:1px solid #ffffff55;
+}
+
+#status{color:#6ff;font-size:13px}
+#gesture{font-size:13px;margin-top:8px}
+</style>
+</head>
+
+<body>
+
+<canvas id="canvas"></canvas>
+
+<video id="video" autoplay playsinline></video>
+
+<div id="panel">
+<h2>✨ 3D Particles</h2>
+<div id="status">Starting camera...</div>
+
+<br>
+
+<button onclick="changeShape('heart')">❤️ Heart</button>
+<button onclick="changeShape('flower')">🌸 Flower</button>
+<button onclick="changeShape('saturn')">🪐 Saturn</button>
+<button onclick="changeShape('fireworks')">🎆 Fireworks</button>
+<button onclick="changeShape('galaxy')">🌌 Galaxy</button>
+<button onclick="changeShape('sphere')">🔵 Sphere</button>
+
+<div id="gesture">Gesture: waiting...</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.min.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+
+<script>
+
+/* =========================
+ THREE.JS
+========================= */
+
+const canvas=document.getElementById("canvas");
+
+const scene=new THREE.Scene();
+
+const camera=new THREE.PerspectiveCamera(
+70,
+innerWidth/innerHeight,
+0.1,
+100
+);
+
+camera.position.z=8;
+
+const renderer=new THREE.WebGLRenderer({
+canvas:canvas,
+antialias:true
+});
+
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+
+
+/* =========================
+ PARTICLES
+========================= */
+
+const COUNT=7000;
+
+const geometry=new THREE.BufferGeometry();
+
+const positions=new Float32Array(COUNT*3);
+const targets=new Float32Array(COUNT*3);
+
+for(let i=0;i<COUNT;i++){
+
+ positions[i*3]=(Math.random()-.5)*8;
+ positions[i*3+1]=(Math.random()-.5)*8;
+ positions[i*3+2]=(Math.random()-.5)*8;
+
+ targets[i*3]=0;
+ targets[i*3+1]=0;
+ targets[i*3+2]=0;
+}
+
+geometry.setAttribute(
+"position",
+new THREE.BufferAttribute(positions,3)
+);
+
+const material=new THREE.PointsMaterial({
+color:0xff36d9,
+size:.055,
+transparent:true,
+opacity:.95,
+blending:THREE.AdditiveBlending,
+depthWrite:false
+});
+
+const particleSystem=new THREE.Points(
+geometry,
+material
+);
+
+scene.add(particleSystem);
+
+
+/* =========================
+ SHAPE FUNCTIONS
+========================= */
+
+function heart(){
+
+ for(let i=0;i<COUNT;i++){
+
+  const t=Math.random()*Math.PI*2;
+  const r=Math.sqrt(Math.random());
+
+  const x=16*Math.pow(Math.sin(t),3);
+
+  const y=
+  13*Math.cos(t)
+  -5*Math.cos(2*t)
+  -2*Math.cos(3*t)
+  -Math.cos(4*t);
+
+  targets[i*3]=x*.17*r;
+  targets[i*3+1]=y*.17*r;
+  targets[i*3+2]=(Math.random()-.5)*.8*r;
+ }
+}
+
+
+function flower(){
+
+ for(let i=0;i<COUNT;i++){
+
+  const a=Math.random()*Math.PI*2;
+
+  const r=Math.sqrt(Math.random())*3;
+
+  const petals=6;
+
+  const radius=
+  r*(.35+.65*Math.abs(Math.cos(petals*a)));
+
+  targets[i*3]=Math.cos(a)*radius;
+  targets[i*3+1]=Math.sin(a)*radius;
+  targets[i*3+2]=(Math.random()-.5)*.5;
+ }
+}
+
+
+function saturn(){
+
+ for(let i=0;i<COUNT;i++){
+
+  if(i<COUNT*.65){
+
+   const u=Math.random()*2-1;
+
+   const a=Math.random()*Math.PI*2;
+
+   const r=Math.sqrt(1-u*u);
+
+   targets[i*3]=1.5*r*Math.cos(a);
+   targets[i*3+1]=1.5*u;
+   targets[i*3+2]=1.5*r*Math.sin(a);
+
+  }else{
+
+   const a=Math.random()*Math.PI*2;
+
+   const r=2+Math.random()*1.3;
+
+   targets[i*3]=Math.cos(a)*r;
+   targets[i*3+1]=(Math.random()-.5)*.1;
+   targets[i*3+2]=Math.sin(a)*r;
+  }
+ }
+}
+
+
+function fireworks(){
+
+ for(let i=0;i<COUNT;i++){
+
+  const theta=Math.random()*Math.PI*2;
+
+  const phi=Math.acos(
+   Math.random()*2-1
+  );
+
+  const r=.3+Math.random()*3.8;
+
+  targets[i*3]=
+   r*Math.sin(phi)*Math.cos(theta);
+
+  targets[i*3+1]=
+   r*Math.sin(phi)*Math.sin(theta);
+
+  targets[i*3+2]=
+   r*Math.cos(phi);
+ }
+}
+
+
+function galaxy(){
+
+ for(let i=0;i<COUNT;i++){
+
+  const r=Math.pow(Math.random(),.6)*4;
+
+  const angle=r*2.5;
+
+  targets[i*3]=
+   Math.cos(angle)*r;
+
+  targets[i*3+1]=
+   (Math.random()-.5)*.4;
+
+  targets[i*3+2]=
+   Math.sin(angle)*r;
+ }
+}
+
+
+function sphere(){
+
+ for(let i=0;i<COUNT;i++){
+
+  const u=Math.random()*2-1;
+
+  const a=Math.random()*Math.PI*2;
+
+  const r=Math.cbrt(Math.random());
+
+  const s=Math.sqrt(1-u*u);
+
+  targets[i*3]=
+   2.2*r*s*Math.cos(a);
+
+  targets[i*3+1]=
+   2.2*r*u;
+
+  targets[i*3+2]=
+   2.2*r*s*Math.sin(a);
+ }
+}
+
+
+/* =========================
+ SHAPE SWITCH
+========================= */
+
+let currentShape="heart";
+
+function changeShape(shape){
+
+ currentShape=shape;
+
+ if(shape==="heart")heart();
+ if(shape==="flower")flower();
+ if(shape==="saturn")saturn();
+ if(shape==="fireworks")fireworks();
+ if(shape==="galaxy")galaxy();
+ if(shape==="sphere")sphere();
+
+}
+
+
+/* first shape */
+heart();
+
+
+/* =========================
+ HAND TRACKING
+========================= */
+
+const video=document.getElementById("video");
+
+const status=document.getElementById("status");
+
+const gesture=document.getElementById("gesture");
+
+let handX=.5;
+let handY=.5;
+
+let pinch=.2;
+
+const hands=new Hands({
+
+ locateFile:file=>{
+  return
+  `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+ }
+
+});
+
+hands.setOptions({
+
+ maxNumHands:2,
+
+ modelComplexity:1,
+
+ minDetectionConfidence:.6,
+
+ minTrackingConfidence:.6
+
+});
+
+
+hands.onResults(results=>{
+
+ if(
+ results.multiHandLandmarks &&
+ results.multiHandLandmarks.length>0
+ ){
+
+  const hand=
+  results.multiHandLandmarks[0];
+
+  const palm=hand[9];
+
+  handX=1-palm.x;
+  handY=palm.y;
+
+  const thumb=hand[4];
+  const index=hand[8];
+
+  const dx=thumb.x-index.x;
+  const dy=thumb.y-index.y;
+
+  pinch=Math.sqrt(
+   dx*dx+dy*dy
+  );
+
+  if(pinch<.06){
+
+   gesture.innerText=
+   "Gesture: 🤏 PINCH";
+
+   material.size=.09;
+
+  }else{
+
+   gesture.innerText=
+   "Gesture: ✋ OPEN HAND";
+
+   material.size=.055;
+  }
+
+  /*
+   hand X = color
+  */
+
+  material.color.setHSL(
+   handX,
+   .9,
+   .6
+  );
+
+ }else{
+
+  gesture.innerText=
+  "Gesture: No hand detected";
+ }
+
+});
+
+
+/* =========================
+ CAMERA
+========================= */
+
+const webcam=new Camera(video,{
+
+ onFrame:async()=>{
+
+  await hands.send({
+   image:video
+  });
+
+ },
+
+ width:640,
+ height:480
+
+});
+
+webcam.start();
+
+status.innerText=
+"Camera active • Show your hand";
+
+
+/* =========================
+ ANIMATION
+========================= */
+
+const clock=new THREE.Clock();
+
+function animate(){
+
+ requestAnimationFrame(animate);
+
+ const time=clock.getElapsedTime();
+
+ const p=
+ geometry.attributes.position.array;
+
+
+ /*
+  Open hand expansion
+ */
+
+ const expansion=
+ THREE.MathUtils.mapLinear(
+  Math.min(pinch,.4),
+  .03,
+  .4,
+  2.2,
+  .75
+ );
+
+
+ for(let i=0;i<COUNT;i++){
+
+  const n=i*3;
+
+  const tx=
+  targets[n]*expansion;
+
+  const ty=
+  targets[n+1]*expansion;
+
+  const tz=
+  targets[n+2]*expansion;
+
+
+  /*
+   Smooth morph
+  */
+
+  p[n]+=
+  (tx-p[n])*.045;
+
+  p[n+1]+=
+  (ty-p[n+1])*.045;
+
+  p[n+2]+=
+  (tz-p[n+2])*.045;
+
+
+  /*
+   Floating movement
+  */
+
+  p[n]+=
+  Math.sin(time*1.5+i*.02)*.001;
+
+  p[n+1]+=
+  Math.cos(time*1.3+i*.015)*.001;
+
+
+  /*
+   Fireworks animation
+  */
+
+  if(currentShape==="fireworks"){
+
+   p[n]*=1.002;
+   p[n+1]*=1.002;
+   p[n+2]*=1.002;
+
+   if(Math.abs(p[n])>5){
+
+    p[n]=targets[n];
+    p[n+1]=targets[n+1];
+    p[n+2]=targets[n+2];
+   }
+  }
+ }
+
+
+ geometry.attributes.position.needsUpdate=true;
+
+
+ /*
+  3D rotation
+ */
+
+ particleSystem.rotation.y+=.002;
+
+ particleSystem.rotation.x=
+ Math.sin(time*.25)*.15;
+
+
+ renderer.render(
+  scene,
+  camera
+ );
+
+}
+
+animate();
+
+
+/* =========================
+ RESIZE
+========================= */
+
+window.addEventListener(
+"resize",
+()=>{
+
+ camera.aspect=
+ innerWidth/innerHeight;
+
+ camera.updateProjectionMatrix();
+
+ renderer.setSize(
+  innerWidth,
+  innerHeight
+ );
+
+});
+
+</script>
+
+</body>
+</html>
